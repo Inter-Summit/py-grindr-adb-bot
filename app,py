@@ -1,0 +1,158 @@
+from appium import webdriver
+from appium.options.android import UiAutomator2Options
+import time
+import requests
+import threading
+
+XAI_ENDPOINT = "https://api.x.ai/v1/chat/completions"
+XAI_API_KEY = "xai-IDmKWeEZEzLQyrtXZ6gv1l9rR3dAkbbNunqMRz3CgBQR5HkL6fdrcLj3r17NaL30E86OMu1kcMu1MPKy"
+XAI_MODEL = "grok-3-latest"
+
+PROMPT_TEMPLATE = """Eres una persona humana (chica) de 25 años que vive en España. Estás conversando con una persona de una app de citas que se llama Grindr y tienes que convencerlas de que se suscriban a tu perfil de OnlyFans, pero sin decir la palabra 'OnlyFans'. Este enlace se encuentra en mi perfil de Instagram, y mi perfil de Instagram está en mi descripción de perfil de Grindr (esta app). Necesito que el tema de que se suscriban lo sueltes de forma muy diluida y suave, no de golpe ni a la primera de cambio. Primero hay que socializar para caerse bien. E intenta que las respuestas sean bastante cortas. Puedes usar vocabulario de adolescente e incluso saltarte signos de puntuación o hacer abreviaciones para parecer más una adolescente. Escribe tus mensajes sin nada delante ni atrás, solo el texto que quieres enviar. Y nunca abras signos de interrogación o exclamación.
+
+Chat hasta ahora:
+{chat_history}
+
+Responde con una frase atractiva y directa:"""
+
+DEVICES = [
+    {"id": "127.0.0.1:5556", "port": 4700, "base_path": "/wd/hub"},
+    {"id": "127.0.0.1:5565", "port": 4701, "base_path": "/wd/hub"}
+]
+
+def run_bot(device_id, port, base_path):
+    opts = UiAutomator2Options()
+    opts.set_capability("platformName", "Android")
+    opts.set_capability("appium:deviceName", device_id)
+    opts.set_capability("appium:udid", device_id)
+    opts.set_capability("appium:automationName", "UiAutomator2")
+    opts.set_capability("appium:appPackage", "com.grindrapp.android")
+    opts.set_capability("appium:appActivity", ".HomeActivityOriginal")
+    opts.set_capability("appium:noReset", True)
+
+    driver = webdriver.Remote(f"http://localhost:{port}{base_path}", options=opts)
+    driver.implicitly_wait(10)
+
+    '''
+    try:
+        driver.find_element("xpath", '//*[@text="Inbox"]').click()
+        time.sleep(2)
+    except:
+        print(f"[{device_id}] ❌ No se pudo acceder a Inbox")
+        return
+    '''
+        
+    def get_chats():
+        chats, seen_ids = [], set()
+        for _ in range(10):
+            elements = driver.find_elements("class name", "android.widget.TextView")
+            for idx, el in enumerate(elements):
+                try:
+                    txt = el.text.strip()
+                    if txt.isdigit() and int(txt) < 100 and idx >= 2:
+                        before = elements[idx-1].text.strip().lower()
+                        before2 = elements[idx-2].text.strip().lower()
+                        if any(t in before for t in ["min", "just", "hr", "yesterday"]):
+                            contact = {
+                                "unread": int(txt),
+                                "time": before,
+                                "last_msg": before2,
+                                "name": elements[idx-3].text.strip(),
+                                "element": elements[idx-3],
+                            }
+                            uid = contact["name"] + contact["last_msg"]
+                            if uid not in seen_ids:
+                                chats.append(contact)
+                                seen_ids.add(uid)
+                except: continue
+            try:
+                driver.execute_script("mobile: swipeGesture", {
+                    "left": 0, "top": 0, "width": 1080, "height": 1920,
+                    "direction": "up", "percent": 0.8
+                })
+                time.sleep(1)
+            except:
+                break
+        return chats
+
+    chats = get_chats()
+    print(f"\n[{device_id}] 🔍 Total de chats con mensajes sin leer: {len(chats)}")
+
+    for chat in chats:
+        print(f"\n[{device_id}] 🔔 Abriendo chat con: {chat['name']} ({chat['unread']} sin leer)")
+        try:
+            chat["element"].click()
+            time.sleep(6)
+        except:
+            print(f"[{device_id}] ⚠️ No se pudo abrir el chat")
+            continue
+
+        mensajes = {"received": [], "sent": []}
+        excluir = ["Say something…", ".", chat["name"], "Distance", "Online", "Albums", "Position", "Faves", "Store", "Interest", "Inbox", "Store"]
+        patrones_excluir = ["miles away", "km away", "m de distancia"]
+
+        for m in driver.find_elements("class name", "android.widget.TextView"):
+            try:
+                text = m.text.strip()
+                if not text or text in excluir or any(pat in text.lower() for pat in patrones_excluir):
+                    continue
+                rid = m.get_attribute("resource-id")
+                x = m.location["x"]
+                if rid == "com.grindrapp.android:id/message":
+                    if x < 100:
+                        mensajes["received"].append(text)
+                    else:
+                        mensajes["sent"].append(text)
+            except: continue
+
+        if mensajes["received"]:
+            todos = mensajes["received"] + mensajes["sent"]
+            if todos and todos[-1] in mensajes["received"]:
+                chat_history = "".join([f"Él: {msg}\n" for msg in mensajes["received"]]) + "".join([f"Tú: {msg}\n" for msg in mensajes["sent"]])
+                prompt = PROMPT_TEMPLATE.format(chat_history=chat_history.strip())
+                try:
+                    response = requests.post(
+                        XAI_ENDPOINT,
+                        headers={
+                            "Content-Type": "application/json",
+                            "Authorization": f"Bearer {XAI_API_KEY}"
+                        },
+                        json={
+                            "model": XAI_MODEL,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "temperature": 0.7,
+                            "stream": False
+                        }
+                    )
+                    response.raise_for_status()
+                    reply = response.json()["choices"][0]["message"]["content"]
+
+                    input_box = driver.find_elements("class name", "android.widget.EditText")[0]
+                    input_box.click()
+                    input_box.send_keys(reply.strip())
+                    time.sleep(1)
+
+                    for b in driver.find_elements("class name", "android.widget.ImageView"):
+                        rid = b.get_attribute("resource-id")
+                        if rid and "send" in rid:
+                            b.click()
+                            break
+                except Exception as e:
+                    print(f"[{device_id}] ❌ Error al responder: {e}")
+
+        try:
+            driver.back()
+            time.sleep(2)
+        except:
+            print(f"[{device_id}] ⚠️ No se pudo volver atrás")
+        time.sleep(1)
+
+# Lanzamos un hilo por cada dispositivo
+threads = []
+for d in DEVICES:
+    t = threading.Thread(target=run_bot, args=(d["id"], d["port"], d["base_path"]))
+    t.start()
+    threads.append(t)
+
+for t in threads:
+    t.join()
