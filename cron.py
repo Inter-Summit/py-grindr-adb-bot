@@ -269,6 +269,13 @@ def main():
             else:
                 log("⚠️  GitHub sync had issues, continuing with bot execution...")
             
+            # Check required files before each execution
+            log("🔍 Checking required files...")
+            if not check_required_files():
+                log("❌ Required files missing - skipping this execution")
+                failed_runs += 1
+                continue
+            
             # Run the bot script
             log("🤖 Starting bot execution...")
             if run_bot_script():
