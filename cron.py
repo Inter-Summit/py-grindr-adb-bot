@@ -264,9 +264,24 @@ def main():
     """Main cron loop"""
     log("Grindr Bot Cron Scheduler Starting...")
     
-    # Check required files first
-    if not check_required_files():
+    # Check required files first (but allow to continue if only username.py is missing)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    critical_files = ['devices.py', 'app.py']  # Don't include username.py here
+    missing_critical = [f for f in critical_files if not os.path.exists(os.path.join(script_dir, f))]
+    
+    if missing_critical:
+        log("❌ CRITICAL ERROR: Essential files are missing!")
+        for file in missing_critical:
+            log(f"   Missing: {file}")
+        log("Cannot continue without these files. Exiting...")
         sys.exit(1)
+    
+    # Check for username.py separately (warn but don't exit)
+    username_file = os.path.join(script_dir, 'username.py')
+    if not os.path.exists(username_file):
+        log("⚠️  username.py missing - will attempt to download during sync")
+    else:
+        log("✅ All required files found")
     
     log(f"Will execute {SCRIPT_TO_RUN} every {INTERVAL_MINUTES} minutes")
     log(f"Working directory: {os.getcwd()}")
