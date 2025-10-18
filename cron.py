@@ -124,7 +124,7 @@ def sync_with_github():
                     log(f"📄 Updated: {item} (config preserved)")
                     
                     # Restore config in the new file
-                    with open(dst_cron, 'r') as f:
+                    with open(dst_cron, 'r', encoding='utf-8') as f:
                         content = f.read()
                     
                     # Replace config values with current ones
@@ -132,7 +132,7 @@ def sync_with_github():
                     content = content.replace('GITHUB_REPO_OWNER = "Inter-Summit"', f'GITHUB_REPO_OWNER = "{current_owner}"')
                     content = content.replace('GITHUB_REPO_NAME = "py-grindr-adb-bot"', f'GITHUB_REPO_NAME = "{current_name}"')
                     
-                    with open(dst_cron, 'w') as f:
+                    with open(dst_cron, 'w', encoding='utf-8') as f:
                         f.write(content)
                     
                     continue
@@ -149,15 +149,17 @@ def sync_with_github():
                     shutil.copytree(src, dst)
                     log(f"📁 Updated directory: {item}")
             
-            log(f"✅ Successfully downloaded commit {latest_commit}")
-            log("📝 Note: Commit hash will be saved only after successful bot execution")
+            # Save the commit hash immediately after successful download
+            with open(commit_file, 'w') as f:
+                f.write(latest_commit)
+            
+            log(f"✅ Successfully updated to commit {latest_commit}")
             
             # Cleanup
             os.remove(zip_path)
             shutil.rmtree(temp_dir)
             
-            # Return the commit hash to be saved later
-            return latest_commit
+            return True
             
         except Exception as e:
             log(f"❌ Error during file update: {e}")
@@ -301,21 +303,18 @@ def main():
             
             # First sync with GitHub (this might download missing files)
             log("🔄 Starting GitHub sync...")
-            sync_result = sync_with_github()
+            sync_success = sync_with_github()
             
-            if sync_result == True:
-                log("✅ GitHub sync completed - already up to date")
-            elif sync_result == False:
-                log("⚠️  GitHub sync had issues")
+            if sync_success:
+                log("✅ GitHub sync completed")
             else:
-                # sync_result contains the new commit hash
-                log("✅ GitHub sync completed - new files downloaded")
+                log("⚠️  GitHub sync had issues")
             
             # Check required files after sync (some might have been downloaded)
             log("🔍 Checking required files...")
             if not check_required_files():
                 log("❌ Required files still missing after sync - skipping this execution")
-                log("💡 Make sure these files exist in the GitHub repository")
+                log("💡 Create username.py manually: copy username.example to username.py")
                 failed_runs += 1
                 continue
             
@@ -323,17 +322,8 @@ def main():
             log("🤖 Starting bot execution...")
             if run_bot_script():
                 successful_runs += 1
-                
-                # Only save commit hash if bot executed successfully AND we downloaded new files
-                if sync_result != True and sync_result != False:
-                    script_dir = os.path.dirname(os.path.abspath(__file__))
-                    commit_file = os.path.join(script_dir, '.last_commit')
-                    with open(commit_file, 'w') as f:
-                        f.write(sync_result)
-                    log(f"💾 Saved commit hash {sync_result} after successful execution")
             else:
                 failed_runs += 1
-                log("⚠️  Bot execution failed - will retry download on next cycle")
             
             # Calculate next execution time
             current_time = datetime.now()
