@@ -316,29 +316,29 @@ def main():
             script_dir = os.path.dirname(os.path.abspath(__file__))
             commit_file = os.path.join(script_dir, '.last_commit')
             
-            # If sync returned True, it means "already up to date", so skip execution
+            # If sync returned True, it means "already up to date", check files and run or exit
             if sync_success == True:
-                # Check if we have username.py, if not give instructions but don't fail
-                username_file = os.path.join(script_dir, 'username.py')
-                if not os.path.exists(username_file):
-                    log("💡 Reminder: Create username.py from username.example to run the bot")
+                # Check required files
+                log("🔍 Checking required files...")
+                if not check_required_files():
+                    log("❌ Required files missing - STOPPING SCHEDULER")
+                    log("💡 Create username.py from username.example, then restart cron")
+                    sys.exit(1)
+                
+                # We have everything, run the bot
+                log("🤖 Starting bot execution...")
+                if run_bot_script():
+                    successful_runs += 1
                 else:
-                    # We have everything, run the bot
-                    log("🔍 All files present - running bot...")
-                    log("🤖 Starting bot execution...")
-                    if run_bot_script():
-                        successful_runs += 1
-                    else:
-                        failed_runs += 1
+                    failed_runs += 1
                 continue
             
             # If we reach here, new files were downloaded, so check everything
             log("🔍 Checking required files after download...")
             if not check_required_files():
-                log("❌ Required files still missing after sync - skipping this execution")
-                log("💡 Create username.py manually: copy username.example to username.py")
-                failed_runs += 1
-                continue
+                log("❌ Required files missing after download - STOPPING SCHEDULER")
+                log("💡 Create username.py from username.example, then restart cron")
+                sys.exit(1)
             
             # Run the bot script
             log("🤖 Starting bot execution...")
