@@ -12,7 +12,7 @@ from datetime import datetime
 
 
 FIRST_MESSAGE = "HHello! how’s life lately? 🤭"
-SECOND_MESSAGE = f"Btw I’m struggling to catch you up here since I don’t use this often. I prefer chatting in telegram if you’re interested you can chat me here {USERNAME} let’s talk and have some fun xd 😏" 
+SECOND_MESSAGE = f"Btw I’m struggling to catch you up here since I don’t use this often. I prefer chatting in telegram if you’re interested let’s talk and have some fun xd 😏 you can chat me here {USERNAME} " 
 
 def get_timestamp():
     """Get current timestamp for logging"""
