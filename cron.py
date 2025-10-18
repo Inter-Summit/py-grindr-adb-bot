@@ -205,9 +205,45 @@ def run_bot_script():
         log(f"Error executing script: {e}")
         return False
 
+def check_required_files():
+    """Check if all required files exist before starting"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    required_files = [
+        'username.py',
+        'devices.py', 
+        'app.py'
+    ]
+    
+    missing_files = []
+    for file in required_files:
+        file_path = os.path.join(script_dir, file)
+        if not os.path.exists(file_path):
+            missing_files.append(file)
+    
+    if missing_files:
+        log("❌ CRITICAL ERROR: Required files are missing!")
+        for file in missing_files:
+            log(f"   Missing: {file}")
+        log("")
+        log("Please ensure all required files exist before running the bot:")
+        log("   - username.py: Contains your telegram username")
+        log("   - devices.py: Contains device configuration")
+        log("   - app.py: Main bot script")
+        log("")
+        log("Exiting...")
+        return False
+    
+    log("✅ All required files found")
+    return True
+
 def main():
     """Main cron loop"""
     log("Grindr Bot Cron Scheduler Starting...")
+    
+    # Check required files first
+    if not check_required_files():
+        sys.exit(1)
+    
     log(f"Will execute {SCRIPT_TO_RUN} every {INTERVAL_MINUTES} minutes")
     log(f"Working directory: {os.getcwd()}")
     log("Press Ctrl+C to stop the scheduler")
