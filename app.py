@@ -635,75 +635,39 @@ def run_bot_with_timeout(device_info):
         log(device_id, f"❌ Bot thread FAILED after {duration:.1f}s: {str(e)[:200]}")
         return f"[{device_id}] FAILED: {str(e)[:100]}"
 
-# Process ALL devices in batches of 3
+# Process ALL devices with continuous pool of workers
 MAX_CONCURRENT_DEVICES = 3
 all_devices = DEVICES  # Process ALL devices from devices.py
 
 print(f"[{get_timestamp()}] 🚀 Starting processing of {len(all_devices)} total devices...")
-print(f"[{get_timestamp()}] 📦 Will process in batches of {MAX_CONCURRENT_DEVICES} devices at a time")
-
-# Split devices into batches of 3
-def create_batches(devices, batch_size):
-    for i in range(0, len(devices), batch_size):
-        yield devices[i:i + batch_size]
-
-batches = list(create_batches(all_devices, MAX_CONCURRENT_DEVICES))
-print(f"[{get_timestamp()}] 📊 Created {len(batches)} batches to process")
+print(f"[{get_timestamp()}] 🔄 Will maintain {MAX_CONCURRENT_DEVICES} concurrent workers")
 
 total_processed = 0
 total_successful = 0
 total_failed = 0
 
-for batch_num, batch_devices in enumerate(batches, 1):
-    print(f"\n[{get_timestamp()}] 📦 BATCH {batch_num}/{len(batches)} - Processing {len(batch_devices)} devices:")
-    for device in batch_devices:
-        print(f"[{get_timestamp()}]    - {device['id']} (port {device['port']})")
+# Use continuous ThreadPoolExecutor
+with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_DEVICES, thread_name_prefix="GrindrBot") as executor:
+    # Submit all devices at once
+    futures = {executor.submit(run_bot_with_timeout, device): device for device in all_devices}
     
-    # Process current batch with ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=len(batch_devices), thread_name_prefix=f"GrindrBot_B{batch_num}") as executor:
-        # Submit all tasks in current batch
-        futures = {}
-        
-        for i, device in enumerate(batch_devices):
-            print(f"[{get_timestamp()}] 📤 Batch {batch_num}: Submitting device {i+1}/{len(batch_devices)}: {device['id']}")
-            future = executor.submit(run_bot_with_timeout, device)
-            futures[future] = device
-            
-        print(f"[{get_timestamp()}] 📋 Batch {batch_num}: All {len(futures)} devices submitted - starting execution...")
-        
-        # Process results as they complete
-        batch_completed = 0
-        batch_successful = 0
-        batch_failed = 0
-        
-        for future in concurrent.futures.as_completed(futures, timeout=600):  # 10 minute timeout per batch
-            device = futures[future]
-            batch_completed += 1
-            total_processed += 1
-            
-            try:
-                result = future.result()
-                print(f"[{get_timestamp()}] ✅ Batch {batch_num} ({batch_completed}/{len(futures)}) - Total ({total_processed}/{len(all_devices)}) {result}")
-                batch_successful += 1
-                total_successful += 1
-            except concurrent.futures.TimeoutError:
-                print(f"[{get_timestamp()}] ⏰ Batch {batch_num} ({batch_completed}/{len(futures)}) - Total ({total_processed}/{len(all_devices)}) [{device['id']}] Timed out")
-                batch_failed += 1
-                total_failed += 1
-            except Exception as e:
-                print(f"[{get_timestamp()}] ❌ Batch {batch_num} ({batch_completed}/{len(futures)}) - Total ({total_processed}/{len(all_devices)}) [{device['id']}] Error: {e}")
-                batch_failed += 1
-                total_failed += 1
+    print(f"[{get_timestamp()}] 📋 All {len(futures)} devices submitted - processing with {MAX_CONCURRENT_DEVICES} workers...")
     
-    print(f"\n[{get_timestamp()}] 📊 BATCH {batch_num} COMPLETED:")
-    print(f"[{get_timestamp()}]    ✅ Successful: {batch_successful}")
-    print(f"[{get_timestamp()}]    ❌ Failed: {batch_failed}")
-    print(f"[{get_timestamp()}]    📈 Progress: {total_processed}/{len(all_devices)} devices processed")
-    
-    # Brief pause between batches to avoid overwhelming the system
-    if batch_num < len(batches):
-        print(f"[{get_timestamp()}] ⏳ Waiting 5 seconds before next batch...")
-        time.sleep(5)
+    # Process results as they complete (new tasks start immediately)
+    for future in concurrent.futures.as_completed(futures, timeout=3600):  # 1 hour total timeout
+        device = futures[future]
+        total_processed += 1
+        
+        try:
+            result = future.result()
+            print(f"[{get_timestamp()}] ✅ ({total_processed}/{len(all_devices)}) {result}")
+            total_successful += 1
+        except concurrent.futures.TimeoutError:
+            print(f"[{get_timestamp()}] ⏰ ({total_processed}/{len(all_devices)}) [{device['id']}] Timed out")
+            total_failed += 1
+        except Exception as e:
+            print(f"[{get_timestamp()}] ❌ ({total_processed}/{len(all_devices)}) [{device['id']}] Error: {e}")
+            total_failed += 1
 
 print(f"\n[{get_timestamp()}] 🏁 ALL DEVICE PROCESSING COMPLETED!")
 print(f"[{get_timestamp()}] 📊 FINAL SUMMARY:")

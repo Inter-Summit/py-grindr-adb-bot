@@ -9,10 +9,16 @@ import time
 import sys
 from datetime import datetime
 import os
+import urllib.request
+import json
+import zipfile
+import shutil
 
 # CONFIGURACIÓN
-INTERVAL_MINUTES = 15  # Cambiar aquí para modificar el intervalo
+INTERVAL_MINUTES = 5  # Cambiar aquí para modificar el intervalo
 SCRIPT_TO_RUN = "app.py"  # Script a ejecutar
+GITHUB_REPO_OWNER = "Inter-Summit"  # Usuario/organización de GitHub
+GITHUB_REPO_NAME = "py-grindr-adb-bot"  # Nombre del repositorio
 
 def get_timestamp():
     """Get current timestamp for logging"""
@@ -21,6 +27,126 @@ def get_timestamp():
 def log(message):
     """Log with timestamp"""
     print(f"[{get_timestamp()}] [CRON] {message}")
+
+def sync_with_github():
+    """Check for updates from GitHub using API and download if needed"""
+    try:
+        log("🔄 Checking for updates from GitHub...")
+        
+        # Get current directory
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Get latest commit hash from GitHub API
+        api_url = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/commits/main"
+        
+        log("📡 Fetching latest commit info from GitHub API...")
+        try:
+            with urllib.request.urlopen(api_url) as response:
+                commit_data = json.loads(response.read().decode())
+                latest_commit = commit_data['sha'][:7]  # Short hash
+                commit_message = commit_data['commit']['message'].split('\n')[0]
+                
+            log(f"🔍 Latest commit: {latest_commit} - {commit_message}")
+        except Exception as e:
+            log(f"❌ Failed to fetch commit info: {e}")
+            return False
+        
+        # Check if we have a local commit hash stored
+        commit_file = os.path.join(script_dir, '.last_commit')
+        local_commit = None
+        
+        if os.path.exists(commit_file):
+            try:
+                with open(commit_file, 'r') as f:
+                    local_commit = f.read().strip()
+                log(f"📂 Local commit: {local_commit}")
+            except:
+                log("⚠️  Could not read local commit file")
+        
+        # Check if update is needed
+        if local_commit == latest_commit:
+            log("✅ Already up to date with GitHub")
+            return True
+        
+        log(f"📥 New version available - downloading...")
+        
+        # Download the latest code as ZIP
+        download_url = f"https://github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/archive/refs/heads/main.zip"
+        zip_path = os.path.join(script_dir, 'temp_update.zip')
+        temp_dir = os.path.join(script_dir, 'temp_update')
+        
+        try:
+            log("⬇️  Downloading latest code...")
+            urllib.request.urlretrieve(download_url, zip_path)
+            
+            # Extract ZIP
+            log("📦 Extracting files...")
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+            
+            # Find extracted folder (will be repo-name-main)
+            extracted_folder = os.path.join(temp_dir, f"{GITHUB_REPO_NAME}-main")
+            
+            if not os.path.exists(extracted_folder):
+                log(f"❌ Extracted folder not found: {extracted_folder}")
+                return False
+            
+            # Backup current files that might be overwritten
+            backup_files = ['app.py', 'devices.py', 'cron.py']
+            backup_dir = os.path.join(script_dir, '.backup')
+            
+            if os.path.exists(backup_dir):
+                shutil.rmtree(backup_dir)
+            os.makedirs(backup_dir)
+            
+            for file in backup_files:
+                src = os.path.join(script_dir, file)
+                if os.path.exists(src):
+                    shutil.copy2(src, backup_dir)
+                    log(f"💾 Backed up: {file}")
+            
+            # Copy new files (skip cron.py to preserve config)
+            log("📁 Updating files...")
+            for item in os.listdir(extracted_folder):
+                if item == 'cron.py':  # Skip cron.py to keep config
+                    continue
+                    
+                src = os.path.join(extracted_folder, item)
+                dst = os.path.join(script_dir, item)
+                
+                if os.path.isfile(src):
+                    shutil.copy2(src, dst)
+                    log(f"📄 Updated: {item}")
+                elif os.path.isdir(src):
+                    if os.path.exists(dst):
+                        shutil.rmtree(dst)
+                    shutil.copytree(src, dst)
+                    log(f"📁 Updated directory: {item}")
+            
+            # Save the new commit hash
+            with open(commit_file, 'w') as f:
+                f.write(latest_commit)
+            
+            log(f"✅ Successfully updated to commit {latest_commit}")
+            
+            # Cleanup
+            os.remove(zip_path)
+            shutil.rmtree(temp_dir)
+            
+            return True
+            
+        except Exception as e:
+            log(f"❌ Error during file update: {e}")
+            # Cleanup on error
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+            return False
+            
+    except Exception as e:
+        log(f"❌ Error during GitHub sync: {e}")
+        return False
 
 def run_bot_script():
     """Execute the main bot script"""
@@ -98,7 +224,17 @@ def main():
             log(f"Stats: {successful_runs} successful, {failed_runs} failed")
             log(f"{'='*60}")
             
+            # First sync with GitHub
+            log("🔄 Starting GitHub sync...")
+            sync_success = sync_with_github()
+            
+            if sync_success:
+                log("✅ GitHub sync completed")
+            else:
+                log("⚠️  GitHub sync had issues, continuing with bot execution...")
+            
             # Run the bot script
+            log("🤖 Starting bot execution...")
             if run_bot_script():
                 successful_runs += 1
             else:
