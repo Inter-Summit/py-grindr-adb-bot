@@ -654,7 +654,7 @@ with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_DEVICES, thread_name_prefix="
     
     print(f"[{get_timestamp()}] 📋 All {len(futures)} devices submitted - processing with {MAX_CONCURRENT_DEVICES} workers...")
     
-    # Process results as they complete (new tasks start immediately)
+    # Process results as they complete
     for future in concurrent.futures.as_completed(futures, timeout=3600):  # 1 hour total timeout
         device = futures[future]
         total_processed += 1
