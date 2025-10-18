@@ -286,19 +286,20 @@ def main():
             log(f"Stats: {successful_runs} successful, {failed_runs} failed")
             log(f"{'='*60}")
             
-            # First sync with GitHub
+            # First sync with GitHub (this might download missing files)
             log("🔄 Starting GitHub sync...")
             sync_success = sync_with_github()
             
             if sync_success:
                 log("✅ GitHub sync completed")
             else:
-                log("⚠️  GitHub sync had issues, continuing with bot execution...")
+                log("⚠️  GitHub sync had issues")
             
-            # Check required files before each execution
+            # Check required files after sync (some might have been downloaded)
             log("🔍 Checking required files...")
             if not check_required_files():
-                log("❌ Required files missing - skipping this execution")
+                log("❌ Required files still missing after sync - skipping this execution")
+                log("💡 Make sure these files exist in the GitHub repository")
                 failed_runs += 1
                 continue
             
