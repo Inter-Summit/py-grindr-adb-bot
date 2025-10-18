@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+
+# Your telegram username (including the @)
+USERNAME = "@myusername" 
