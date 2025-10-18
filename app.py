@@ -22,7 +22,7 @@ def log(device_id, message):
     """Log with timestamp"""
     print(f"[{get_timestamp()}] [{device_id}] {message}")
 
-def run_bot(device_id, port):
+def run_bot(device_id, port, base_path):
     
     opts = UiAutomator2Options()
     opts.set_capability("platformName", "Android")
@@ -45,7 +45,7 @@ def run_bot(device_id, port):
             connection_attempts += 1
             log(device_id, f"🔄 Connection attempt {connection_attempts}/{max_attempts}...")
             
-            driver = webdriver.Remote(f"http://localhost:{port}", options=opts)
+            driver = webdriver.Remote(f"http://localhost:{port}{base_path}", options=opts)
             driver.implicitly_wait(10)
             time.sleep(2)
             
@@ -157,7 +157,7 @@ def run_bot(device_id, port):
                     
                     # Recrear conexión
                     log(device_id, "🔄 Recreating Appium connection...")
-                    driver = webdriver.Remote(f"http://localhost:{port}", options=opts)
+                    driver = webdriver.Remote(f"http://localhost:{port}{base_path}", options=opts)
                     driver.implicitly_wait(10)
                     time.sleep(2)
                     
@@ -618,13 +618,14 @@ def run_bot_with_timeout(device_info):
     """Wrapper function to run bot with timeout and error isolation"""
     device_id = device_info["id"]
     port = device_info["port"]
+    base_path = device_info["base_path"]
     
     log(device_id, f"🚀 Bot thread STARTED on port {port}")
     start_time = datetime.now()
     
     try:
         log(device_id, f"▶️ Calling run_bot function...")
-        run_bot(device_id, port)
+        run_bot(device_id, port, base_path)
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
         log(device_id, f"✅ Bot thread COMPLETED - Total time: {duration:.1f}s")
