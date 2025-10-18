@@ -105,10 +105,36 @@ def sync_with_github():
                     shutil.copy2(src, backup_dir)
                     log(f"💾 Backed up: {file}")
             
-            # Copy new files (skip cron.py to preserve config)
+            # Copy new files (backup cron.py config before updating)
             log("📁 Updating files...")
             for item in os.listdir(extracted_folder):
-                if item == 'cron.py':  # Skip cron.py to keep config
+                if item == 'cron.py':
+                    # Special handling for cron.py - preserve config but update code
+                    src_cron = os.path.join(extracted_folder, 'cron.py')
+                    dst_cron = os.path.join(script_dir, 'cron.py')
+                    
+                    # Read current config values
+                    current_interval = INTERVAL_MINUTES
+                    current_script = SCRIPT_TO_RUN
+                    current_owner = GITHUB_REPO_OWNER
+                    current_name = GITHUB_REPO_NAME
+                    
+                    # Copy new cron.py
+                    shutil.copy2(src_cron, dst_cron)
+                    log(f"📄 Updated: {item} (config preserved)")
+                    
+                    # Restore config in the new file
+                    with open(dst_cron, 'r') as f:
+                        content = f.read()
+                    
+                    # Replace config values with current ones
+                    content = content.replace('INTERVAL_MINUTES = 5', f'INTERVAL_MINUTES = {current_interval}')
+                    content = content.replace('GITHUB_REPO_OWNER = "Inter-Summit"', f'GITHUB_REPO_OWNER = "{current_owner}"')
+                    content = content.replace('GITHUB_REPO_NAME = "py-grindr-adb-bot"', f'GITHUB_REPO_NAME = "{current_name}"')
+                    
+                    with open(dst_cron, 'w') as f:
+                        f.write(content)
+                    
                     continue
                     
                 src = os.path.join(extracted_folder, item)
