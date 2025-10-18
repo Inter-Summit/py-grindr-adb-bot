@@ -301,7 +301,7 @@ def main():
             log(f"Stats: {successful_runs} successful, {failed_runs} failed")
             log(f"{'='*60}")
             
-            # First sync with GitHub (this might download missing files)
+            # First sync with GitHub 
             log("🔄 Starting GitHub sync...")
             sync_success = sync_with_github()
             
@@ -309,9 +309,31 @@ def main():
                 log("✅ GitHub sync completed")
             else:
                 log("⚠️  GitHub sync had issues")
+                failed_runs += 1
+                continue
             
-            # Check required files after sync (some might have been downloaded)
-            log("🔍 Checking required files...")
+            # Only check files and run bot if we just downloaded something new
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            commit_file = os.path.join(script_dir, '.last_commit')
+            
+            # If sync returned True, it means "already up to date", so skip execution
+            if sync_success == True:
+                # Check if we have username.py, if not give instructions but don't fail
+                username_file = os.path.join(script_dir, 'username.py')
+                if not os.path.exists(username_file):
+                    log("💡 Reminder: Create username.py from username.example to run the bot")
+                else:
+                    # We have everything, run the bot
+                    log("🔍 All files present - running bot...")
+                    log("🤖 Starting bot execution...")
+                    if run_bot_script():
+                        successful_runs += 1
+                    else:
+                        failed_runs += 1
+                continue
+            
+            # If we reach here, new files were downloaded, so check everything
+            log("🔍 Checking required files after download...")
             if not check_required_files():
                 log("❌ Required files still missing after sync - skipping this execution")
                 log("💡 Create username.py manually: copy username.example to username.py")
