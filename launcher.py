@@ -129,6 +129,8 @@ class GrindrBotLauncher:
                 text=True,
                 bufsize=0,  # Unbuffered for real-time output
                 universal_newlines=True,
+                encoding='utf-8',  # Force UTF-8 encoding
+                errors='replace',  # Replace problematic chars
                 env=dict(os.environ, PYTHONUNBUFFERED="1")  # Force Python unbuffered
             )
             
@@ -147,14 +149,21 @@ class GrindrBotLauncher:
         """Read output from server process"""
         try:
             while self.server_process and self.server_process.poll() is None:
-                line = self.server_process.stdout.readline()
-                if line:
-                    self.log(f"[SERVERS] {line.strip()}")
-                    
-                    # Update status based on output
-                    if "successfully started" in line.lower() or "server started" in line.lower():
-                        self.root.after(0, lambda: self.server_status.config(
-                            text="Status: Connected ✅", foreground="green"))
+                try:
+                    line = self.server_process.stdout.readline()
+                    if line:
+                        # Clean line and replace problematic chars
+                        clean_line = line.strip().encode('ascii', 'replace').decode('ascii')
+                        self.log(f"[SERVERS] {clean_line}")
+                        
+                        # Update status based on output
+                        if "successfully started" in line.lower() or "server started" in line.lower():
+                            self.root.after(0, lambda: self.server_status.config(
+                                text="Status: Connected [OK]", foreground="green"))
+                except UnicodeDecodeError:
+                    self.log("[SERVERS] [Output contains special characters]")
+                except Exception as line_error:
+                    self.log(f"[SERVERS] Error reading line: {line_error}")
                         
         except Exception as e:
             self.log(f"❌ Error reading server output: {e}")
@@ -197,6 +206,8 @@ class GrindrBotLauncher:
                 text=True,
                 bufsize=0,  # Unbuffered for real-time output
                 universal_newlines=True,
+                encoding='utf-8',  # Force UTF-8 encoding
+                errors='replace',  # Replace problematic chars
                 env=dict(os.environ, PYTHONUNBUFFERED="1")  # Force Python unbuffered
             )
             
@@ -215,17 +226,24 @@ class GrindrBotLauncher:
         """Read output from bot process"""
         try:
             while self.bot_process and self.bot_process.poll() is None:
-                line = self.bot_process.stdout.readline()
-                if line:
-                    self.log(f"[BOT] {line.strip()}")
-                    
-                    # Update status based on output
-                    if "scheduler starting" in line.lower():
-                        self.root.after(0, lambda: self.bot_status.config(
-                            text="Status: Running 🟢", foreground="green"))
-                    elif "stopping scheduler" in line.lower() or "goodbye" in line.lower():
-                        self.root.after(0, lambda: self.bot_status.config(
-                            text="Status: Stopped", foreground="red"))
+                try:
+                    line = self.bot_process.stdout.readline()
+                    if line:
+                        # Clean line and replace problematic chars
+                        clean_line = line.strip().encode('ascii', 'replace').decode('ascii')
+                        self.log(f"[BOT] {clean_line}")
+                        
+                        # Update status based on output
+                        if "scheduler starting" in line.lower():
+                            self.root.after(0, lambda: self.bot_status.config(
+                                text="Status: Running [OK]", foreground="green"))
+                        elif "stopping scheduler" in line.lower() or "goodbye" in line.lower():
+                            self.root.after(0, lambda: self.bot_status.config(
+                                text="Status: Stopped", foreground="red"))
+                except UnicodeDecodeError:
+                    self.log("[BOT] [Output contains special characters]")
+                except Exception as line_error:
+                    self.log(f"[BOT] Error reading line: {line_error}")
                         
         except Exception as e:
             self.log(f"❌ Error reading bot output: {e}")
