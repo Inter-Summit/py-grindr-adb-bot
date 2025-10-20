@@ -1,12 +1,21 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import subprocess
 import time
 import os
+import sys
 from devices import DEVICES
+
+# Set UTF-8 encoding for Windows
+if sys.platform == "win32":
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 def start_appium_servers():
     """Launch Appium servers for all devices in separate cmd windows"""
     
-    print(f"🚀 Starting {len(DEVICES)} Appium servers...")
+    print(f"[LAUNCHER] Starting {len(DEVICES)} Appium servers...")
     
     processes = []
     
@@ -17,7 +26,7 @@ def start_appium_servers():
         print(f"[{i+1}/{len(DEVICES)}] Processing device {device_id}...")
         
         # First, connect via ADB
-        print(f"  📱 Connecting via ADB: {device_id}")
+        print(f"  [ADB] Connecting via ADB: {device_id}")
         try:
             adb_result = subprocess.run(
                 ["adb", "connect", device_id],
@@ -26,11 +35,11 @@ def start_appium_servers():
                 timeout=10
             )
             if adb_result.returncode == 0:
-                print(f"  ✅ ADB connected: {device_id}")
+                print(f"  [OK] ADB connected: {device_id}")
             else:
-                print(f"  ⚠️  ADB connection warning: {adb_result.stderr.strip()}")
+                print(f"  [WARN]  ADB connection warning: {adb_result.stderr.strip()}")
         except Exception as e:
-            print(f"  ❌ ADB connection failed: {e}")
+            print(f"  [ERROR] ADB connection failed: {e}")
             continue  # Skip this device if ADB fails
         
         # Command to start Appium server (Appium 3.x compatible)
@@ -45,7 +54,7 @@ def start_appium_servers():
         if "base_path" in device and device["base_path"] and device["base_path"] != "/":
             appium_cmd.extend(["--base-path", device["base_path"]])
         
-        print(f"  🚀 Starting Appium server on port {port}...")
+        print(f"  [START] Starting Appium server on port {port}...")
         
         try:
             # Start in new cmd window (Windows)
@@ -65,27 +74,27 @@ def start_appium_servers():
                 "process": process
             })
             
-            print(f"  ✅ Appium server started on port {port}")
+            print(f"  [OK] Appium server started on port {port}")
             
             # Wait a bit between launches to avoid conflicts
             time.sleep(3)  # Increased to 3 seconds for stability
             
         except Exception as e:
-            print(f"❌ [{device_id}] Failed to start Appium server: {e}")
+            print(f"[ERROR] [{device_id}] Failed to start Appium server: {e}")
     
     print(f"\n🎉 All {len(processes)} Appium servers started!")
     print("\n📋 Server Summary:")
     for server in processes:
         print(f"  • {server['device_id']} → http://localhost:{server['port']}")
     
-    print(f"\n⚠️  Keep these terminal windows open while running the bot!")
+    print(f"\n[WARN]  Keep these terminal windows open while running the bot!")
     print(f"💡 To stop all servers, close the terminal windows or press Ctrl+C in each one.")
     
     return processes
 
 def connect_all_adb():
     """Connect all devices via ADB only (without starting Appium)"""
-    print(f"📱 Connecting {len(DEVICES)} devices via ADB...")
+    print(f"[ADB] Connecting {len(DEVICES)} devices via ADB...")
     
     connected = []
     failed = []
@@ -103,26 +112,26 @@ def connect_all_adb():
             )
             
             if result.returncode == 0:
-                print(f"  ✅ Connected: {device_id}")
+                print(f"  [OK] Connected: {device_id}")
                 connected.append(device_id)
             else:
-                print(f"  ❌ Failed: {device_id} - {result.stderr.strip()}")
+                print(f"  [ERROR] Failed: {device_id} - {result.stderr.strip()}")
                 failed.append(device_id)
                 
         except Exception as e:
-            print(f"  ❌ Error connecting {device_id}: {e}")
+            print(f"  [ERROR] Error connecting {device_id}: {e}")
             failed.append(device_id)
         
         time.sleep(1)
     
     print(f"\n📊 ADB Connection Summary:")
-    print(f"  ✅ Connected: {len(connected)} devices")
+    print(f"  [OK] Connected: {len(connected)} devices")
     if connected:
         for device in connected:
             print(f"    • {device}")
     
     if failed:
-        print(f"  ❌ Failed: {len(failed)} devices")
+        print(f"  [ERROR] Failed: {len(failed)} devices")
         for device in failed:
             print(f"    • {device}")
 
@@ -142,9 +151,9 @@ def stop_all_servers():
             else:  # macOS/Linux
                 subprocess.run(f"lsof -ti tcp:{port} | xargs kill -9", shell=True)
             
-            print(f"✅ [{device_id}] Server on port {port} stopped")
+            print(f"[OK] [{device_id}] Server on port {port} stopped")
         except Exception as e:
-            print(f"⚠️  [{device_id}] Could not stop server on port {port}: {e}")
+            print(f"[WARN]  [{device_id}] Could not stop server on port {port}: {e}")
 
 if __name__ == "__main__":
     import sys
