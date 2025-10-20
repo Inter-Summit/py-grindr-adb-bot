@@ -127,8 +127,9 @@ class GrindrBotLauncher:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1,
-                universal_newlines=True
+                bufsize=0,  # Unbuffered for real-time output
+                universal_newlines=True,
+                env=dict(os.environ, PYTHONUNBUFFERED="1")  # Force Python unbuffered
             )
             
             # Update UI
@@ -194,8 +195,9 @@ class GrindrBotLauncher:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1,
-                universal_newlines=True
+                bufsize=0,  # Unbuffered for real-time output
+                universal_newlines=True,
+                env=dict(os.environ, PYTHONUNBUFFERED="1")  # Force Python unbuffered
             )
             
             # Update UI

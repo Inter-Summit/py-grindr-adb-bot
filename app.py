@@ -32,7 +32,7 @@ def get_timestamp():
 
 def log(device_id, message):
     """Log with timestamp"""
-    print(f"[{get_timestamp()}] [{device_id}] {message}")
+    print(f"[{get_timestamp()}] [{device_id}] {message}", flush=True)
 
 def run_bot(device_id, port, base_path):
     

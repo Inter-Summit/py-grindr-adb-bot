@@ -37,7 +37,7 @@ def get_timestamp():
 
 def log(message):
     """Log with timestamp"""
-    print(f"[{get_timestamp()}] [CRON] {message}")
+    print(f"[{get_timestamp()}] [CRON] {message}", flush=True)
 
 def sync_with_github():
     """Check for updates from GitHub using API and download if needed"""
