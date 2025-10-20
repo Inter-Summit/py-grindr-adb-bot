@@ -15,7 +15,7 @@ from datetime import datetime
 class GrindrBotLauncher:
     def __init__(self, root):
         self.root = root
-        self.root.title("Grindr Bot Launcher")
+        self.root.title("GRD Launcher")
         self.root.geometry("600x500")
         self.root.resizable(True, True)
         
