@@ -1,14 +1,26 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
 from appium.webdriver.common.appiumby import AppiumBy
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
+import sys
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 from devices import DEVICES
 from username import USERNAME
 from datetime import datetime
+
+# Fix Windows encoding issues
+if sys.platform == "win32":
+    try:
+        import codecs
+        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+    except:
+        pass
 
 
 FIRST_MESSAGE = "HHello! how’s life lately? 🤭"

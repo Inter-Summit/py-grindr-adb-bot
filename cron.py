@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Cron scheduler for Grindr bot automation
 Executes app.py at regular intervals
@@ -13,6 +14,16 @@ import urllib.request
 import json
 import zipfile
 import shutil
+
+# Fix Windows encoding issues
+if sys.platform == "win32":
+    try:
+        import codecs
+        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+    except:
+        # Fallback: replace problematic emojis with text
+        pass
 
 # CONFIGURACIÓN
 INTERVAL_MINUTES = 5  # Cambiar aquí para modificar el intervalo
