@@ -24,7 +24,7 @@ def get_appium_port(adb_port):
         port_str = str(adb_port)
     
     # Add 44 prefix (e.g., "5565" -> "445565")
-    appium_port = f"44{port_str}"
+    appium_port = f"4{port_str}"
     return int(appium_port)
 
 def start_appium_servers():
